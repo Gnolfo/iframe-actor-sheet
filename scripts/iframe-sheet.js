@@ -16,6 +16,7 @@ Hooks.once("init", () => {
     label: "Iframe Sheet",
     makeDefault: false,
   });
+  console.log(`${MODULE_ID} | registered`);
 });
 
 class IframeActorSheet extends ActorSheet {
@@ -62,36 +63,56 @@ class IframeActorSheet extends ActorSheet {
   activateListeners(html) {
     super.activateListeners(html);
     const iframe = html[0]?.querySelector("iframe.iframe-actor-sheet__frame");
-    if (!iframe) return;
+    if (!iframe) {
+      console.warn(`${MODULE_ID} | activateListeners: iframe element not found`);
+      return;
+    }
 
     let iframeOrigin;
-    try { iframeOrigin = new URL(iframe.src).origin; } catch { return; }
+    try { iframeOrigin = new URL(iframe.src).origin; }
+    catch { console.warn(`${MODULE_ID} | activateListeners: invalid iframe.src`, iframe.src); return; }
 
-    const sendContext = () => {
+    console.log(`${MODULE_ID} | listening for messages from`, iframeOrigin);
+
+    const sendContext = (target) => {
+      const win = target ?? iframe.contentWindow;
+      if (!win) return;
+      const payload = {
+        type: `${MSG_PREFIX}context`,
+        actorId: this.actor.id,
+        actorName: this.actor.name,
+        userId: game.user.id,
+        worldId: game.world.id,
+        systemId: game.system.id,
+        isOwner: this.actor.isOwner,
+        isGM: game.user.isGM,
+      };
       try {
-        iframe.contentWindow?.postMessage({
-          type: `${MSG_PREFIX}context`,
-          actorId: this.actor.id,
-          actorName: this.actor.name,
-          userId: game.user.id,
-          worldId: game.world.id,
-          systemId: game.system.id,
-          isOwner: this.actor.isOwner,
-          isGM: game.user.isGM,
-        }, iframeOrigin);
+        win.postMessage(payload, iframeOrigin);
+        console.log(`${MODULE_ID} | sent context to`, iframeOrigin);
       } catch (err) {
         console.warn(`${MODULE_ID} | failed to post context`, err);
       }
     };
-    iframe.addEventListener("load", sendContext);
+    iframe.addEventListener("load", () => sendContext());
 
     this._onMessage = (event) => {
-      if (event.source !== iframe.contentWindow) return;
-      if (event.origin !== iframeOrigin) return;
       const msg = event.data;
       if (!msg || typeof msg !== "object") return;
       if (typeof msg.type !== "string" || !msg.type.startsWith(MSG_PREFIX)) return;
-      this._dispatch(msg);
+
+      console.log(`${MODULE_ID} | message received`, {
+        type: msg.type,
+        origin: event.origin,
+        expected: iframeOrigin,
+        sourceMatchesIframe: event.source === iframe.contentWindow,
+      });
+
+      if (event.origin !== iframeOrigin) {
+        console.warn(`${MODULE_ID} | origin mismatch — dropping`, event.origin, "expected", iframeOrigin);
+        return;
+      }
+      this._dispatch(msg, event.source);
     };
     window.addEventListener("message", this._onMessage);
   }
@@ -104,8 +125,10 @@ class IframeActorSheet extends ActorSheet {
     return super.close(options);
   }
 
-  _dispatch(msg) {
+  _dispatch(msg, source) {
     switch (msg.type) {
+      case `${MSG_PREFIX}hello`:
+        return this._sendContextTo(source);
       case `${MSG_PREFIX}roll`:
         return this._handleRoll(msg);
       default:
@@ -113,9 +136,34 @@ class IframeActorSheet extends ActorSheet {
     }
   }
 
+  _sendContextTo(source) {
+    if (!source) return;
+    const iframe = this.element?.[0]?.querySelector("iframe.iframe-actor-sheet__frame");
+    if (!iframe) return;
+    const iframeOrigin = new URL(iframe.src).origin;
+    source.postMessage({
+      type: `${MSG_PREFIX}context`,
+      actorId: this.actor.id,
+      actorName: this.actor.name,
+      userId: game.user.id,
+      worldId: game.world.id,
+      systemId: game.system.id,
+      isOwner: this.actor.isOwner,
+      isGM: game.user.isGM,
+    }, iframeOrigin);
+    console.log(`${MODULE_ID} | replied to hello with context`);
+  }
+
   async _handleRoll({ formula, flavor }) {
-    if (typeof formula !== "string" || !formula.trim()) return;
-    if (!this.actor.isOwner && !game.user.isGM) return;
+    console.log(`${MODULE_ID} | handling roll`, { formula, flavor });
+    if (typeof formula !== "string" || !formula.trim()) {
+      console.warn(`${MODULE_ID} | roll: bad formula`, formula);
+      return;
+    }
+    if (!this.actor.isOwner && !game.user.isGM) {
+      console.warn(`${MODULE_ID} | roll: user lacks owner permission on actor`);
+      return;
+    }
     try {
       const rollData = this.actor.getRollData?.() ?? {};
       const roll = await new Roll(formula, rollData).evaluate();
@@ -123,6 +171,7 @@ class IframeActorSheet extends ActorSheet {
         speaker: ChatMessage.getSpeaker({ actor: this.actor }),
         flavor: typeof flavor === "string" ? flavor : undefined,
       });
+      console.log(`${MODULE_ID} | roll posted: total =`, roll.total);
     } catch (err) {
       console.error(`${MODULE_ID} | roll failed`, err);
       ui.notifications?.warn(`Iframe sheet: invalid roll formula "${formula}"`);
