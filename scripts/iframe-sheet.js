@@ -62,9 +62,17 @@ class IframeActorSheet extends ActorSheet {
 
   activateListeners(html) {
     super.activateListeners(html);
-    const iframe = html[0]?.querySelector("iframe.iframe-actor-sheet__frame");
+    // `html` is a jQuery wrapper in v1, a plain HTMLElement under v13's v1-shim.
+    // `this.element` similarly varies. Normalize to a root Element.
+    const root =
+      (html instanceof Element ? html : html?.[0]) ??
+      (this.element instanceof Element ? this.element : this.element?.[0]);
+    const iframe = root?.querySelector?.("iframe");
     if (!iframe) {
-      console.warn(`${MODULE_ID} | activateListeners: iframe element not found`);
+      console.warn(`${MODULE_ID} | activateListeners: iframe element not found`, {
+        rootTag: root?.tagName,
+        rootHTML: root?.outerHTML?.slice(0, 300),
+      });
       return;
     }
 
@@ -138,7 +146,8 @@ class IframeActorSheet extends ActorSheet {
 
   _sendContextTo(source) {
     if (!source) return;
-    const iframe = this.element?.[0]?.querySelector("iframe.iframe-actor-sheet__frame");
+    const root = this.element instanceof Element ? this.element : this.element?.[0];
+    const iframe = root?.querySelector?.("iframe");
     if (!iframe) return;
     const iframeOrigin = new URL(iframe.src).origin;
     source.postMessage({
