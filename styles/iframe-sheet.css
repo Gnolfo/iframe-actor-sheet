@@ -1,0 +1,33 @@
+.window-app.iframe-actor-sheet .window-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.window-app.iframe-actor-sheet .window-content > form {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  background: transparent;
+}
+
+.iframe-actor-sheet__frame {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  margin: 0;
+  display: block;
+  background: transparent;
+}
+
+.iframe-actor-sheet__empty {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  font-style: italic;
+  opacity: 0.7;
+  text-align: center;
+}
