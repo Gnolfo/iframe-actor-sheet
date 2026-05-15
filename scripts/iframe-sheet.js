@@ -67,7 +67,7 @@ class IframeActorSheet extends ActorSheet {
     const root =
       (html instanceof Element ? html : html?.[0]) ??
       (this.element instanceof Element ? this.element : this.element?.[0]);
-    const iframe = root?.querySelector?.("iframe");
+    const iframe = root?.tagName === "IFRAME" ? root : root?.querySelector?.("iframe");
     if (!iframe) {
       console.warn(`${MODULE_ID} | activateListeners: iframe element not found`, {
         rootTag: root?.tagName,
@@ -147,7 +147,7 @@ class IframeActorSheet extends ActorSheet {
   _sendContextTo(source) {
     if (!source) return;
     const root = this.element instanceof Element ? this.element : this.element?.[0];
-    const iframe = root?.querySelector?.("iframe");
+    const iframe = root?.tagName === "IFRAME" ? root : root?.querySelector?.("iframe");
     if (!iframe) return;
     const iframeOrigin = new URL(iframe.src).origin;
     source.postMessage({
