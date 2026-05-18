@@ -2,7 +2,7 @@
   "id": "iframe-actor-sheet",
   "title": "Iframe Actor Sheet",
   "description": "Replaces the actor sheet body with an iframe pointing at a configurable external URL. The iframed page provides all controls; the module adds none of its own.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "manifest": "https://github.com/Gnolfo/iframe-actor-sheet/releases/download/v0.1.6/module.json",
   "download": "https://github.com/Gnolfo/iframe-actor-sheet/releases/download/v0.1.6/iframe-actor-sheet.zip",
   "compatibility": {

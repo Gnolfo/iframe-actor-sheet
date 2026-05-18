@@ -12,6 +12,24 @@ Hooks.once("init", () => {
     default: "",
   });
 
+  game.settings.register(MODULE_ID, "defaultWidth", {
+    name: "Default Width",
+    hint: "Initial window width (pixels). Applied on every open, overriding Foundry's cached per-actor size.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 1200,
+  });
+
+  game.settings.register(MODULE_ID, "defaultHeight", {
+    name: "Default Height",
+    hint: "Initial window height (pixels). Applied on every open, overriding Foundry's cached per-actor size.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 900,
+  });
+
   Actors.registerSheet(game.system.id, IframeActorSheet, {
     label: "Iframe Sheet",
     makeDefault: false,
@@ -21,11 +39,13 @@ Hooks.once("init", () => {
 
 class IframeActorSheet extends ActorSheet {
   static get defaultOptions() {
+    const width = Number(game.settings?.get?.(MODULE_ID, "defaultWidth")) || 1200;
+    const height = Number(game.settings?.get?.(MODULE_ID, "defaultHeight")) || 900;
     return foundry.utils.mergeObject(super.defaultOptions, {
       classes: ["iframe-actor-sheet"],
       template: TEMPLATE_PATH,
-      width: 900,
-      height: 1000,
+      width,
+      height,
       resizable: true,
       submitOnChange: false,
       submitOnClose: false,
@@ -55,9 +75,16 @@ class IframeActorSheet extends ActorSheet {
   }
 
   // Skip data-driven re-renders so the iframe doesn't reload on every actor update.
+  // On a real (forced or initial) render, re-apply the configured default size
+  // *after* super._render — Foundry's per-actor position cache runs inside super,
+  // and our setPosition here overrides it so the module's defaults always win.
   async _render(force, options) {
     if (this.rendered && !force) return this;
-    return super._render(force, options);
+    const result = await super._render(force, options);
+    const width = Number(game.settings.get(MODULE_ID, "defaultWidth")) || 1200;
+    const height = Number(game.settings.get(MODULE_ID, "defaultHeight")) || 900;
+    this.setPosition({ width, height });
+    return result;
   }
 
   activateListeners(html) {
